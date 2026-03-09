@@ -146,6 +146,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .albumCard .aMeta{font-size:10px;color:rgba(255,255,255,.6);margin-top:2px;
   display:flex;gap:6px;align-items:center}
+.albumCard .cardDate{font-size:10px;color:rgba(255,255,255,.45);margin-bottom:1px;letter-spacing:.02em}
 
 /* ── Album feed ───────────────────────────────────────────── */
 #vAlbum{max-width:700px;margin:0 auto;padding-bottom:60px}
@@ -413,8 +414,47 @@ input[type=file]{display:none}
 }
 @media(max-width:500px){
   .albumCard .aName{font-size:11px}
-  #igPanel{max-width:100%}
+  #igPanel,#xhsPanel{max-width:100%}
 }
+/* ── XHS Import Panel ────────────────────────────────────── */
+#xhsPanel{
+  display:none;flex-direction:column;gap:12px;
+  padding:20px;background:var(--s2);border-radius:12px;
+  border:1px solid var(--border);width:100%;max-width:340px;
+  margin-top:4px;
+}
+#xhsPanel.on{display:flex}
+#xhsInput{
+  flex:1;background:var(--s1);border:1px solid var(--border);
+  color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;
+  outline:none;min-width:0;
+}
+#xhsInput::placeholder{color:var(--muted)}
+#xhsInput:focus{border-color:#ff2442}
+#xhsFetchBtn{
+  background:#ff2442;color:#fff;border:none;
+  padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer;
+  flex-shrink:0;transition:opacity .15s;
+}
+#xhsFetchBtn:hover{opacity:.85}
+/* ── 哼哼猫转换进度层 ─────────────────────────────────────── */
+#hhOverlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.88);z-index:400;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  padding:24px;
+}
+#hhOverlay.on{display:flex}
+#hhOverlayTitle{font-size:16px;font-weight:600;color:var(--text)}
+#hhOverlayLog{
+  width:100%;max-width:380px;max-height:220px;overflow-y:auto;
+  background:#0d0d0d;border:1px solid var(--border);border-radius:10px;
+  padding:12px 14px;font-size:12px;font-family:monospace;
+  color:#8e8e8e;line-height:1.9;
+}
+#hhOverlayLog .ok{color:#3eb489}
+#hhOverlayLog .dim{color:#444}
+#hhOverlaySub{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -424,6 +464,8 @@ input[type=file]{display:none}
   <button class="hbtn ghost" id="btnBack" style="display:none">‹</button>
   <div id="hdrTitle">📸 本地相册</div>
   <button class="hbtn" id="btnViewToggle" style="display:none">九宫格</button>
+  <button class="hbtn" id="btnSort" style="display:none">↓ 倒序</button>
+  <button class="hbtn" id="btnMediaFilter" style="display:none">全部</button>
   <select id="langSel" title="Language"></select>
   <button class="hbtn pri" id="btnOpen">选择文件夹</button>
 </div>
@@ -438,6 +480,15 @@ input[type=file]{display:none}
     <button class="wBtn" id="btnWelcomeOpen">📂 选择本地照片文件夹</button>
     <button class="wBtnGhost" id="btnReopen" style="display:none"></button>
     <button class="wBtnGhost" id="btnShowIG">📥 从 Instagram 导入</button>
+    <button class="wBtnGhost" id="btnHHCat">🐱 导入哼哼猫</button>
+    <button class="wBtnGhost" id="btnShowXHS">📕 从小红书导入</button>
+  </div>
+
+  <!-- 哼哼猫转换进度层 -->
+  <div id="hhOverlay">
+    <div id="hhOverlayTitle">🐱 正在转换哼哼猫文件…</div>
+    <div id="hhOverlayLog"></div>
+    <div id="hhOverlaySub"></div>
   </div>
 
   <!-- IG 导入面板 -->
@@ -492,6 +543,38 @@ input[type=file]{display:none}
     </div>
   </div>
 
+  <!-- XHS 导入面板 -->
+  <div id="xhsPanel">
+    <div class="igRow">
+      <input type="text" id="xhsInput" placeholder="用户主页 URL 或 user_id" autocomplete="off" spellcheck="false">
+      <button id="xhsFetchBtn">生成命令</button>
+    </div>
+
+    <!-- 第一步：安装依赖 -->
+    <div class="igStep" id="xhsStep1">
+      <div class="igStepLabel"><span>1</span>安装依赖（只需运行一次）</div>
+      <div class="igCmdRow">
+        <textarea class="igCmd" id="xhsCmd1" rows="1" readonly></textarea>
+        <button class="igCopyBtn" id="xhsCopy1">复制</button>
+      </div>
+    </div>
+
+    <!-- 第二步：下载 -->
+    <div class="igStep" id="xhsStep2">
+      <div class="igStepLabel"><span>2</span>在终端运行（会提示粘贴 Cookie）</div>
+      <div class="igCmdRow">
+        <textarea class="igCmd" id="xhsCmd2" rows="2" readonly></textarea>
+        <button class="igCopyBtn" id="xhsCopy2">复制</button>
+      </div>
+    </div>
+
+    <!-- 第三步：打开文件夹 -->
+    <div class="igStep" id="xhsStep3">
+      <div class="igStepLabel"><span>3</span>下载完成后</div>
+      <div class="igNote">点「选择本地照片文件夹」→ 选中 <b>downloads/<span id="xhsUserDisplay"></span></b> 目录</div>
+    </div>
+  </div>
+
   <div class="wNote" id="compatNote">需要 Chrome 或 Edge 浏览器 · 所有数据仅在本地存储</div>
 </div>
 
@@ -530,6 +613,7 @@ input[type=file]{display:none}
 const IMG_EXT = /\.(jpe?g|jpg|png|webp|heic|heif|gif|avif|bmp)$/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|m4v)$/i;
 const STORE_KEY = 'local-ig-v1';
+const L2_UNCLASSIFIED = '/__unclassified__'; // 虚拟 L2 key：有 L1 但无该 L1 下任何 L2
 
 // ── 國家關鍵字庫（多語言）────────────────────────────────────────────────────
 // 每個 entry：{ 'zh-TW':顯示名, 'zh-CN':..., en:..., ja:..., ko:..., th:..., kw:[偵測關鍵字] }
@@ -753,6 +837,7 @@ const LANGS = {
     toastNoFolder:'未選擇資料夾', toastReadFail:'讀取失敗：',
     viewFile:'🔗 查看', copyPath:'📋 複製路徑', openDir:'📂 打開資料夾',
     pathCopied:'✓ 路徑已複製', pathUnknown:'⚠️ 尚未設定儲存路徑',
+    folderCopied:'📂 路徑已複製 → 貼到資源管理員地址列',
     reopenFolder:name=>`📂 重新開啟：${name}`,
     filterAll:'全部', filterUntagged:'⬜ 未分類', tagPh:'新增標籤…', tagSuggest:'建議', noTagResult:'無符合相簿',
   },
@@ -781,6 +866,7 @@ const LANGS = {
     toastNoFolder:'未选择文件夹', toastReadFail:'读取失败：',
     viewFile:'🔗 查看', copyPath:'📋 复制路径', openDir:'📂 打开文件夹',
     pathCopied:'✓ 路径已复制', pathUnknown:'⚠️ 尚未设置保存路径',
+    folderCopied:'📂 路径已复制 → 粘贴到资源管理器地址栏',
     reopenFolder:name=>`📂 重新打开：${name}`,
     filterAll:'全部', filterUntagged:'⬜ 未分类', tagPh:'新增标签…', tagSuggest:'建议', noTagResult:'无符合相册',
   },
@@ -809,6 +895,7 @@ const LANGS = {
     toastNoFolder:'No folder selected', toastReadFail:'Read failed: ',
     viewFile:'🔗 View', copyPath:'📋 Copy Path', openDir:'📂 Open Folder',
     pathCopied:'✓ Path copied', pathUnknown:'⚠️ Output path not set',
+    folderCopied:'📂 Path copied → paste in File Explorer address bar',
     reopenFolder:name=>`📂 Reopen: ${name}`,
     filterAll:'All', filterUntagged:'⬜ Untagged', tagPh:'Add tag…', tagSuggest:'Suggestions', noTagResult:'No matching albums',
   },
@@ -837,6 +924,7 @@ const LANGS = {
     toastNoFolder:'ยังไม่ได้เลือกโฟลเดอร์', toastReadFail:'โหลดล้มเหลว: ',
     viewFile:'🔗 ดู', copyPath:'📋 คัดลอกเส้นทาง', openDir:'📂 เปิดโฟลเดอร์',
     pathCopied:'✓ คัดลอกเส้นทางแล้ว', pathUnknown:'⚠️ ยังไม่ได้ตั้งค่าเส้นทาง',
+    folderCopied:'📂 คัดลอกเส้นทางแล้ว → วางใน File Explorer',
     reopenFolder:name=>`📂 เปิดอีกครั้ง: ${name}`,
     filterAll:'ทั้งหมด', filterUntagged:'⬜ ไม่มีแท็ก', tagPh:'เพิ่มแท็ก…', tagSuggest:'แนะนำ', noTagResult:'ไม่พบอัลบั้มที่ตรงกัน',
   },
@@ -865,6 +953,7 @@ const LANGS = {
     toastNoFolder:'フォルダが選択されていません', toastReadFail:'読込失敗：',
     viewFile:'🔗 表示', copyPath:'📋 パスをコピー', openDir:'📂 フォルダを開く',
     pathCopied:'✓ パスをコピーしました', pathUnknown:'⚠️ 保存先が設定されていません',
+    folderCopied:'📂 パスをコピーしました → エクスプローラーのアドレス欄に貼り付け',
     reopenFolder:name=>`📂 再度開く：${name}`,
     filterAll:'すべて', filterUntagged:'⬜ 未分類', tagPh:'タグを追加…', tagSuggest:'おすすめ', noTagResult:'一致するアルバムなし',
   },
@@ -893,6 +982,7 @@ const LANGS = {
     toastNoFolder:'폴더가 선택되지 않았습니다', toastReadFail:'읽기 실패: ',
     viewFile:'🔗 보기', copyPath:'📋 경로 복사', openDir:'📂 폴더 열기',
     pathCopied:'✓ 경로 복사됨', pathUnknown:'⚠️ 저장 경로가 설정되지 않았습니다',
+    folderCopied:'📂 경로 복사됨 → 파일 탐색기 주소창에 붙여넣기',
     reopenFolder:name=>`📂 다시 열기: ${name}`,
     filterAll:'전체', filterUntagged:'⬜ 미분류', tagPh:'태그 추가…', tagSuggest:'추천', noTagResult:'일치하는 앨범 없음',
   },
@@ -1032,6 +1122,8 @@ const S = {
   rootDirHandle:null, rootAbsPath:null,
   activeTags:new Set(),
   expandedL1s:new Set(),
+  sortDesc:true,
+  mediaFilter:'all', // 'all' | 'video' | 'photo'
 };
 
 // ── Storage ───────────────────────────────────────────────────────────────
@@ -1240,7 +1332,7 @@ async function readFolder(root){
     albums.unshift({name:'__root__',handle:null,photos:rootPhotos,coverUrl:null,postMeta:null,rootAlbum:true,firstImage:null,notesData:rootNotesData});
   }
 
-  albums.sort((a,b)=>b.name.localeCompare(a.name,'zh'));
+  // 排序在 getFilteredAlbums() 中根据 S.sortDesc 动态处理
 
   for(const alb of albums){
     const nd =alb.notesData;        // notes.json（磁盘持久化）
@@ -1318,7 +1410,7 @@ async function writeNotes(alb){
 
 // ── DOM ───────────────────────────────────────────────────────────────────
 const $=id=>document.getElementById(id);
-const btnBack=$('btnBack'), btnOpen=$('btnOpen'), btnViewToggle=$('btnViewToggle');
+const btnBack=$('btnBack'), btnOpen=$('btnOpen'), btnViewToggle=$('btnViewToggle'), btnSort=$('btnSort'), btnMediaFilter=$('btnMediaFilter');
 const hdrTitle=$('hdrTitle'), toastEl=$('toast');
 const lbImg=$('lbImg'), lbCaption=$('lbCaption');
 const lbPrev=$('lbPrev'), lbNext=$('lbNext');
@@ -1337,10 +1429,23 @@ function showView(name){
   $({welcome:'vWelcome',home:'vHome',album:'vAlbum',lb:'vLB'}[name]).classList.add('on');
   S.view=name;
 }
+function isVideoAlbum(alb){
+  const photos=alb.photos, n=photos.length, vc=photos.filter(p=>p.isVideo).length;
+  return vc===n||(alb.postMeta?.is_video&&vc===0&&n===1);
+}
+function updateSortBtn(){
+  btnSort.textContent=S.sortDesc ? '↓ 倒序' : '↑ 正序';
+}
+function updateMediaBtn(){
+  btnMediaFilter.textContent={all:'全部',video:'仅视频',photo:'仅照片'}[S.mediaFilter];
+  btnMediaFilter.classList.toggle('pri', S.mediaFilter!=='all');
+}
 function goHome(){
   renderHome();showView('home');
   hdrTitle.textContent=`📸 ${S.rootName||t('appName')}`;
   btnBack.style.display='none';btnViewToggle.style.display='none';
+  btnSort.style.display='';updateSortBtn();
+  btnMediaFilter.style.display='';updateMediaBtn();
   btnOpen.style.display='';$('hdr').style.display='';
 }
 function goAlbum(alb){
@@ -1348,6 +1453,7 @@ function goAlbum(alb){
   renderAlbum(alb);showView('album');
   hdrTitle.textContent=alb.title;
   btnBack.style.display='';btnViewToggle.style.display='';
+  btnSort.style.display='none';btnMediaFilter.style.display='none';
   btnOpen.style.display='none';updateGridBtn();
   $('hdr').style.display='';
 }
@@ -1371,20 +1477,32 @@ function closeLB(){
 
 // ── Render: Home ──────────────────────────────────────────────────────────
 function getFilteredAlbums(){
-  if(!S.activeTags.size) return S.albums;
-  const UNTAGGED=t('filterUntagged');
-  return S.albums.filter(alb=>{
-    const tags=alb.tags||[];
-    for(const ft of S.activeTags){
-      if(ft===UNTAGGED){
-        // 未分類：無任何 L1 標簽（tags 全空，或只有 L2 孤兒）
-        const hasL1=tags.some(tag=>!tag.includes('/'));
-        if(hasL1) return false;
-      } else {
-        if(!tags.some(tag=>tag===ft||tag.startsWith(ft+'/'))) return false;
+  let result = S.albums;
+  if(S.activeTags.size){
+    const UNTAGGED=t('filterUntagged');
+    result=S.albums.filter(alb=>{
+      const tags=alb.tags||[];
+      for(const ft of S.activeTags){
+        if(ft===UNTAGGED){
+          // 未分類：無任何 L1 標簽（tags 全空，或只有 L2 孤兒）
+          const hasL1=tags.some(tag=>!tag.includes('/'));
+          if(hasL1) return false;
+        } else if(ft.endsWith(L2_UNCLASSIFIED)){
+          // L1 下的未分类：有该 L1（裸标签）但无该 L1 下的任何 L2
+          const l1=ft.slice(0,-L2_UNCLASSIFIED.length);
+          if(!tags.some(t=>t===l1)||tags.some(t=>t.startsWith(l1+'/'))) return false;
+        } else {
+          if(!tags.some(tag=>tag===ft||tag.startsWith(ft+'/'))) return false;
+        }
       }
-    }
-    return true;
+      return true;
+    });
+  }
+  if(S.mediaFilter==='video') result=result.filter(isVideoAlbum);
+  else if(S.mediaFilter==='photo') result=result.filter(alb=>!isVideoAlbum(alb));
+  return [...result].sort((a,b)=>{
+    const cmp=a.name.localeCompare(b.name,'zh');
+    return S.sortDesc ? -cmp : cmp;
   });
 }
 
@@ -1398,16 +1516,14 @@ function buildL2Row(l1,l2counts){
   const row=document.createElement('div');
   row.className='l2row';
   row.dataset.l1=l1;
-  [...l2counts.entries()].sort((a,b)=>b[1]-a[1]).forEach(([tag,cnt])=>{
-    const l2=tag.split('/')[1];
+  const unclKey=l1+L2_UNCLASSIFIED;
+  const mkL2Chip=(tag,cnt,label,isUncl)=>{
     const active=S.activeTags.has(tag);
-    const c=mkChip(`${l2}${cnt>1?' '+cnt:''}`,active,e=>{
+    const c=mkChip(`${label}${cnt>1?' '+cnt:''}`,active,e=>{
       if(e.ctrlKey||e.metaKey){
-        // Ctrl：多選切換
         if(active) S.activeTags.delete(tag);
         else{ S.activeTags.delete(l1);S.activeTags.add(tag); }
       } else {
-        // 單選：清除全部，只選此 L2
         S.activeTags.clear();
         if(!active) S.activeTags.add(tag);
       }
@@ -1415,8 +1531,14 @@ function buildL2Row(l1,l2counts){
       refreshHomeFilter();
     });
     c.classList.add('l2chip');
+    if(isUncl) c.style.cssText='opacity:.6;border-style:dashed';
     row.appendChild(c);
-  });
+  };
+  // 普通 L2（按数量降序）
+  [...l2counts.entries()].filter(([t])=>t!==unclKey).sort((a,b)=>b[1]-a[1])
+    .forEach(([tag,cnt])=>mkL2Chip(tag,cnt,tag.split('/')[1],false));
+  // 未分类放最后
+  if(l2counts.has(unclKey)) mkL2Chip(unclKey,l2counts.get(unclKey),'未分类',true);
   return row;
 }
 
@@ -1447,6 +1569,18 @@ function buildFilterBar(){
       }
     });
   });
+
+  // 为每个 L1 统计「有该 L1 裸标签但无任何 L1/xxx」的 album 数，注入虚拟 L2 未分类 entry
+  for(const l1 of l1Counts.keys()){
+    const unclCnt=S.albums.filter(alb=>{
+      const tags=alb.tags||[];
+      return tags.some(t=>t===l1)&&!tags.some(t=>t.startsWith(l1+'/'));
+    }).length;
+    if(unclCnt>0){
+      if(!l2Map.has(l1)) l2Map.set(l1,new Map());
+      l2Map.get(l1).set(l1+L2_UNCLASSIFIED,unclCnt);
+    }
+  }
 
   // 哪些 L1 應強制顯示箭頭（即使目前無 L2 資料）
   const alwaysArrowL1s=new Set(
@@ -1676,6 +1810,13 @@ function buildCard(alb){
     }
   }
   const ov=document.createElement('div');ov.className='overlay';
+  // 日期：优先 meta.json 发布时间，回退到第一张媒体文件的 date
+  const _d=alb.postMeta?.date?new Date(alb.postMeta.date):alb.photos[0]?.date;
+  if(_d&&!isNaN(+_d)){
+    const dateEl=document.createElement('div');dateEl.className='cardDate';
+    dateEl.textContent=`${_d.getFullYear()}.${String(_d.getMonth()+1).padStart(2,'0')}.${String(_d.getDate()).padStart(2,'0')}`;
+    ov.appendChild(dateEl);
+  }
   const meta=[];
   if(alb.location) meta.push(`📍 ${alb.location}`);
   if(alb.likes!=null) meta.push(`♥ ${fmtNum(alb.likes)}`);
@@ -2099,6 +2240,177 @@ async function openFolder(){
   }
 }
 
+// ── 哼哼猫导入 ────────────────────────────────────────────────────────────
+// 解析哼哼猫图片文件名的序号：圖片.jpg→0  圖片(1).jpg→1  圖片(2).jpg→2
+function hhImgIndex(name){
+  const m=name.match(/^(.+?)(?:\((\d+)\))?(\.[^.]+)$/);
+  return m?(m[2]!=null?parseInt(m[2]):0):0;
+}
+// 是否是哼哼猫风格的图片文件名（含圖片/图片/image 等变体，兼容简繁英）
+const HH_IMG=/\.(jpe?g|png|webp|heic|gif)$/i;
+const HH_VID=/\.(mp4|mov|avi|mkv|webm)$/i;
+// 文件夹名是否符合 {数字}_{文案} 格式
+function hhParseFolder(name){
+  const m=name.match(/^(\d+)_(.+)$/);
+  return m?{num:parseInt(m[1]),caption:m[2].trim()}:null;
+}
+
+async function hhcatConvert(){
+  if(!window.showDirectoryPicker){toast(t('toastChrome'));return;}
+  let root;
+  try{root=await window.showDirectoryPicker({mode:'readwrite'});}
+  catch(e){if(e.name!=='AbortError') toast(t('toastNoFolder'));return;}
+
+  // 收集用户子文件夹（含 {数字}_ 格式的帖子文件夹的那层）
+  const logEl=$('hhOverlayLog');
+  const subEl=$('hhOverlaySub');
+  logEl.innerHTML='';subEl.textContent='';
+  $('hhOverlay').classList.add('on');
+
+  function log(html){
+    logEl.insertAdjacentHTML('beforeend',html+'<br>');
+    logEl.scrollTop=logEl.scrollHeight;
+  }
+
+  // 判断 root 是否直接是用户目录（含帖子子文件夹），还是包含多用户的根目录
+  async function isUserDir(dir){
+    for await(const [name,h] of dir.entries()){
+      if(h.kind==='directory'&&hhParseFolder(name)) return true;
+    }
+    return false;
+  }
+
+  let userDirs=[];
+  if(await isUserDir(root)){
+    userDirs=[root];
+  } else {
+    for await(const [name,h] of root.entries()){
+      if(h.kind==='directory'&&!name.startsWith('.')&&await isUserDir(h))
+        userDirs.push(h);
+    }
+  }
+
+  if(!userDirs.length){
+    log('<span class="dim">⚠️ 未找到哼哼猫格式的文件夹（期望包含 {序号}_{文案} 子文件夹）</span>');
+    subEl.textContent='请选择哼哼猫下载的用户目录或根目录';
+    return;
+  }
+
+  let totalDone=0, totalSkip=0;
+
+  for(const userDir of userDirs){
+    // 收集所有帖子文件夹
+    const posts=[];
+    for await(const [name,h] of userDir.entries()){
+      if(h.kind==='directory'){
+        const p=hhParseFolder(name);
+        if(p) posts.push({...p,handle:h,name});
+      }
+    }
+    posts.sort((a,b)=>a.num-b.num);
+
+    log(`<span style="color:#fff">👤 ${userDir.name}  (${posts.length} 个帖子)</span>`);
+
+    for(const post of posts){
+      const dir=post.handle;
+      // 检查是否已转换（有 meta.json）
+      let alreadyDone=false;
+      try{await dir.getFileHandle('meta.json');alreadyDone=true;}catch{}
+      if(alreadyDone){
+        log(`<span class="dim">  [${post.num}] 已转换，跳过</span>`);
+        totalSkip++;continue;
+      }
+
+      // 收集文件
+      const imgs=[], vids=[];
+      for await(const [name,h] of dir.entries()){
+        if(h.kind!=='file') continue;
+        if(HH_IMG.test(name)) imgs.push({name,h});
+        else if(HH_VID.test(name)) vids.push({name,h});
+      }
+      imgs.sort((a,b)=>hhImgIndex(a.name)-hhImgIndex(b.name));
+
+      const isVideo=vids.length>0;
+      let renamedCount=0;
+
+      // 重命名函数：读取原文件 → 写新文件名 → 删除原文件
+      async function renameFile(handle, newName){
+        if(handle.name===newName) return;
+        const file=await handle.getFile();
+        const buf=await file.arrayBuffer();
+        const newH=await dir.getFileHandle(newName,{create:true});
+        const w=await newH.createWritable();
+        await w.write(buf); await w.close();
+        await dir.removeEntry(handle.name);
+        renamedCount++;
+      }
+
+      if(isVideo){
+        // 视频帖：封面 1.jpg + 1.mp4，多余图片删除
+        if(imgs.length) await renameFile(imgs[0].h,'1.jpg');
+        for(let i=1;i<imgs.length;i++) await dir.removeEntry(imgs[i].name);
+        if(vids.length) await renameFile(vids[0].h,'1.mp4');
+      } else {
+        // 图片帖：依次编号
+        for(let i=0;i<imgs.length;i++){
+          const ext=imgs[i].name.replace(/^.+(\.[^.]+)$/,'$1').toLowerCase()
+            .replace('.jpeg','.jpg');
+          await renameFile(imgs[i].h,`${i+1}${ext}`);
+        }
+      }
+
+      // 写 meta.json
+      const meta={
+        caption:post.caption, date:null,
+        location:'', location_id:'',
+        shortcode:'', ig_url:'',
+        is_video:isVideo,
+        image_count:isVideo?1:imgs.length,
+        downloaded:isVideo?1:imgs.length,
+        source:'hhcat',
+      };
+      const metaH=await dir.getFileHandle('meta.json',{create:true});
+      const mw=await metaH.createWritable();
+      await mw.write(JSON.stringify(meta,null,2)); await mw.close();
+
+      const tag=isVideo?'📹':`🖼️ ×${imgs.length}`;
+      log(`<span class="ok">  ✓ [${post.num}] ${tag} ${post.caption.slice(0,40)}</span>`);
+      subEl.textContent=`处理中… ${post.num}/${posts.length}`;
+      totalDone++;
+    }
+  }
+
+  // 写 _path.txt（仅单用户模式，且绑定了 root 就是用户目录）
+  if(userDirs.length===1&&userDirs[0]===root){
+    try{
+      const pt=await root.getFileHandle('_path.txt',{create:true});
+      const pw=await pt.createWritable();
+      await pw.write(root.name); await pw.close();
+    }catch{}
+  }
+
+  log(`<br><span style="color:#fff">✅ 完成  转换 ${totalDone} 个 | 已有 ${totalSkip} 个</span>`);
+  subEl.textContent='';
+
+  // 1.5 秒后关闭进度层，直接加载相册
+  setTimeout(async()=>{
+    $('hhOverlay').classList.remove('on');
+    S.rootDirHandle=root;
+    $('vHome').innerHTML=`<div class="loading"><div class="spin"></div><div>${t('loading')}</div></div>`;
+    showView('home');hdrTitle.textContent='读取中…';
+    btnBack.style.display='none';btnViewToggle.style.display='none';
+    btnOpen.style.display='none';$('hdr').style.display='';
+    try{
+      S.rootName=root.name;
+      idb.set('lastFolder',root).catch(()=>{});
+      S.albums=await readFolder(root);
+      goHome();
+    }catch(e){toast(t('toastReadFail')+e.message);showView('welcome');btnOpen.style.display='';}
+  },1500);
+}
+
+$('btnHHCat').addEventListener('click',hhcatConvert);
+
 // ── IG 导入面板 ───────────────────────────────────────────────────────────
 $('btnShowIG').addEventListener('click',()=>{
   const panel=$('igPanel');
@@ -2152,6 +2464,40 @@ function makeCopyBtn(btnId, cmdId){
 makeCopyBtn('igCopy1','igCmd1');
 makeCopyBtn('igCopy2','igCmd2');
 $('igInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('igFetchBtn').click();});
+
+// ── XHS 导入面板 ──────────────────────────────────────────────────────────────
+$('btnShowXHS').addEventListener('click',()=>{
+  const panel=$('xhsPanel');
+  panel.classList.toggle('on');
+  if(panel.classList.contains('on')){
+    $('igPanel').classList.remove('on');  // 互斥：关闭 IG 面板
+    $('xhsInput').focus();
+  }
+});
+$('btnShowIG').addEventListener('click',()=>{
+  $('xhsPanel').classList.remove('on');  // 互斥：关闭 XHS 面板
+});
+function getXhsScriptPath(){
+  const dir=getHtmlDir();
+  return dir?`${dir}/xhs_download.py`:'xhs_download.py';
+}
+$('xhsFetchBtn').addEventListener('click',()=>{
+  const raw=$('xhsInput').value.trim();
+  if(!raw){$('xhsInput').focus();return;}
+  // 提取 user_id（URL 或直接字符串）
+  const m=raw.match(/\/user\/profile\/([0-9a-fA-F]{20,})/);
+  const uid=m?m[1]:raw;
+  const dir=getHtmlDir();
+  const output=dir?`${dir}/downloads`:'downloads';
+  $('xhsCmd1').value='pip install xhs requests';
+  $('xhsCmd2').value=`python "${getXhsScriptPath()}" ${uid} --output "${output}"`;
+  $('xhsUserDisplay').textContent=uid;
+  ['xhsStep1','xhsStep2','xhsStep3'].forEach(id=>$(id).classList.add('on'));
+  [$('xhsCmd1'),$('xhsCmd2')].forEach(ta=>{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';});
+});
+makeCopyBtn('xhsCopy1','xhsCmd1');
+makeCopyBtn('xhsCopy2','xhsCmd2');
+$('xhsInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('xhsFetchBtn').click();});
 $('igOutput').addEventListener('input',()=>{
   localStorage.setItem('ig-output-path',$('igOutput').value);
   updateIgStep3Note();
@@ -2174,6 +2520,17 @@ lbCaption.addEventListener('input',()=>{
   scheduleWrite(alb);
 });
 
+btnSort.addEventListener('click',()=>{
+  S.sortDesc=!S.sortDesc;
+  updateSortBtn();
+  renderHome();
+});
+btnMediaFilter.addEventListener('click',()=>{
+  S.mediaFilter={all:'video',video:'photo',photo:'all'}[S.mediaFilter];
+  updateMediaBtn();
+  renderHome();
+});
+
 btnViewToggle.addEventListener('click',()=>{
   if(S.albumMode==='feed'){
     S.albumMode='grid';S.gridCols=3;renderAlbumGrid(S.currentAlbum);
@@ -2187,6 +2544,7 @@ btnViewToggle.addEventListener('click',()=>{
 
 function renderAlbumGrid(alb){
   const el=$('vAlbum'); el.innerHTML=''; el.scrollTop=0;
+  renderTagEditor(alb, el);
   const grid=document.createElement('div');
   grid.style.cssText=`display:grid;grid-template-columns:repeat(${S.gridCols},1fr);gap:2px;padding:2px`;
   alb.photos.forEach((photo,idx)=>{
@@ -2278,9 +2636,15 @@ function getFolderPath(alb){
 function openLocalFolder(alb){
   const path=getFolderPath(alb);
   if(!path){toast(t('pathUnknown'),2800);return;}
-  // 将 Windows 反斜杠统一为正斜杠，构造 file:// URL
-  const url='file:///'+path.replace(/\\/g,'/').replace(/^\/+/,'');
-  window.open(url,'_blank');
+  // Chrome/Edge 阻止 file:// 页面打开其他 file:// 路径，改为复制路径到剪贴板
+  const winPath=path.replace(/\//g,'\\');  // 转为 Windows 反斜杠，方便直接粘贴到资源管理器
+  navigator.clipboard.writeText(winPath).then(()=>toast(t('folderCopied'),3500)).catch(()=>{
+    const inp=document.createElement('input');
+    inp.style.cssText='position:fixed;top:-999px;opacity:0';
+    inp.value=winPath;document.body.appendChild(inp);inp.select();
+    document.execCommand('copy');document.body.removeChild(inp);
+    toast(t('folderCopied'),3500);
+  });
 }
 function copyPhotoPath(alb,photo){
   const path=getPhotoPath(alb,photo);
