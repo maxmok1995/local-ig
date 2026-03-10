@@ -1,0 +1,114 @@
+{
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "name": "IG Content Factory",
+      "description": "Generate Instagram carousel content and images automatically"
+    }
+  },
+  "modules": [
+    {
+      "id": 1,
+      "module": "webhooks:customWebhook",
+      "version": 1,
+      "parameters": {
+        "name": "topic_webhook"
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": { "x": 0, "y": 0 }
+      }
+    },
+    {
+      "id": 2,
+      "module": "tools:setVariable",
+      "version": 1,
+      "mapper": {
+        "name": "prompt",
+        "value": "You are a professional Instagram strategist. Create an engaging 7-slide Instagram carousel about: {{1.topic}}. Include ig_caption, carousel slides, stories, and csv output."
+      },
+      "metadata": {
+        "designer": { "x": 300, "y": 0 }
+      }
+    },
+    {
+      "id": 3,
+      "module": "http:request",
+      "version": 1,
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer YOUR_OPENAI_API_KEY"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "mapper": {
+        "body": "{\n \"model\": \"gpt-4o-mini\",\n \"messages\": [\n {\"role\":\"system\",\"content\":\"You generate Instagram carousel content in JSON.\"},\n {\"role\":\"user\",\"content\":\"{{2.value}}\"}\n ]\n}"
+      },
+      "metadata": {
+        "designer": { "x": 600, "y": 0 }
+      }
+    },
+    {
+      "id": 4,
+      "module": "tools:parseJSON",
+      "version": 1,
+      "mapper": {
+        "json": "{{3.body}}"
+      },
+      "metadata": {
+        "designer": { "x": 900, "y": 0 }
+      }
+    },
+    {
+      "id": 5,
+      "module": "tools:iterator",
+      "version": 1,
+      "mapper": {
+        "array": "{{4.carousel}}"
+      },
+      "metadata": {
+        "designer": { "x": 1200, "y": 0 }
+      }
+    },
+    {
+      "id": 6,
+      "module": "http:request",
+      "version": 1,
+      "parameters": {
+        "url": "https://api.bannerbear.com/v2/images",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer YOUR_IMAGE_API_KEY"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "mapper": {
+        "body": "{\n \"template\": \"YOUR_TEMPLATE_ID\",\n \"modifications\": [\n {\"name\":\"title\",\"text\":\"{{5.title}}\"},\n {\"name\":\"content\",\"text\":\"{{5.content}}\"}\n ]\n}"
+      },
+      "metadata": {
+        "designer": { "x": 1500, "y": 0 }
+      }
+    }
+  ],
+  "connections": [
+    { "from": 1, "to": 2 },
+    { "from": 2, "to": 3 },
+    { "from": 3, "to": 4 },
+    { "from": 4, "to": 5 },
+    { "from": 5, "to": 6 }
+  ]
+}
